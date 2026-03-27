@@ -14,19 +14,24 @@ app.get('/', (req, res) => {
     res.send('¡El servidor de lockerApp está funcionando a la perfección!');
 });
 
-// NUEVA RUTA: Obtener los casilleros
-app.get('/api/casilleros', async (req, res) => {
+// NUEVA RUTA: Obtener todos los lockers (Conectada a la nueva tabla)
+app.get('/api/lockers', async (req, res) => {
+  try {
     const { data, error } = await supabase
-        .from('casilleros')
-        .select('*');
+      .from('lockers')
+      .select('*')
+      .order('id', { ascending: true });
 
     if (error) {
-        return res.status(500).json({ error: error.message });
+      return res.status(400).json({ mensaje: "Error al obtener lockers: " + error.message });
     }
-    
-    res.json(data);
-});
 
+    res.json(data);
+
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error interno del servidor." });
+  }
+});
 const PORT = process.env.PORT || 3000;
 // NUEVA RUTA: Intentar abrir un casillero enviando credenciales
 // RUTA TEMPORAL: Para generar un PIN seguro (Hash)
