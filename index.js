@@ -33,42 +33,46 @@ app.get('/api/lockers', async (req, res) => {
   }
 });
 const PORT = process.env.PORT || 3000;
-// NUEVA RUTA: Intentar abrir un casillero enviando credenciales
-// RUTA TEMPORAL: Para generar un PIN seguro (Hash)
-app.post('/api/crear-hash', async (req, res) => {
-    const { pin } = req.body;
-    // El '10' es el nivel de seguridad (salt rounds). Toma milisegundos generar esto.
-    const pinEncriptado = await bcrypt.hash(pin, 10); 
-    res.json({ pin_original: pin, pin_seguro: pinEncriptado });
+
+// RUTA: REGISTRAR (Ahora guarda el nombre en Supabase)
+app.post('/api/registrar', async (req, res) => {
+  const { nombre, correo, pin } = req.body;
+  try {
+    const pinEncriptado = await bcrypt.hash(pin, 10);
+    const { data, error } = await supabase
+      .from('usuarios')
+      .insert([{ nombre: nombre, correo: correo, pin: pinEncriptado }]);
+
+    if (error) return res.status(400).json({ mensaje: "Error: " + error.message });
+    res.json({ mensaje: "¡Usuario registrado con éxito!" });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error del servidor." });
+  }
 });
+
+// RUTA: LOGIN (Ahora devuelve el nombre a la app)
 app.post('/api/abrir', async (req, res) => {
-    // 1. Recibimos los datos que envía la app móvil o el teclado
-    const { correo, pin } = req.body;
+  const { correo, pin } = req.body;
+  try {
+    // Buscamos al usuario por correo
+    const { data, error } = await supabase.from('usuarios').select('*').eq('correo', correo).single();
+    
+    if (error || !data) return res.status(400).json({ mensaje: "Usuario no encontrado." });
 
-    // 2. Buscamos al estudiante en la base de datos por su correo
-    const { data: estudiante, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('correo_institucional', correo)
-        .single(); // single() significa que solo esperamos un resultado
+    // Comparamos el PIN
+    const pinValido = await bcrypt.compare(pin, data.pin);
+    if (!pinValido) return res.status(400).json({ mensaje: "PIN incorrecto." });
 
-    // Si hay un error o el correo no existe
-    if (error || !estudiante) {
-        return res.status(404).json({ mensaje: '❌ Estudiante no encontrado' });
-    }
+    // ¡Éxito! Devolvemos el nombre del estudiante
+    res.json({ mensaje: "Acceso concedido", nombre: data.nombre });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error del servidor." });
+  }
+});
 
-    // 3. Verificamos el PIN 
-    // 3. Verificamos el PIN con seguridad real (Bcrypt)
-    // Compara el '1234' que envía la app, con el hash '$2a$10...' de la base de datos
-    const pinValido = await bcrypt.compare(pin, estudiante.pin_hash);
-
-    if (pinValido) {
-        // Aquí es donde el servidor le enviaría la señal de voltaje al ESP32
-        res.json({ mensaje: '🔓 ACCESO CONCEDIDO. Abriendo casillero...' });
-    } else {
-        // Si el PIN está mal, denegamos el acceso
-        res.status(401).json({ mensaje: '🚫 PIN INCORRECTO. Acceso denegado.' });
-    }
+// Encendemos el servidor
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
