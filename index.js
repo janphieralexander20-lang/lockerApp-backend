@@ -69,7 +69,40 @@ app.post('/api/abrir', async (req, res) => {
     res.status(500).json({ mensaje: "Error del servidor." });
   }
 });
+// NUEVA RUTA: Liberar un locker
+app.post('/api/liberar', async (req, res) => {
+  const { id_locker, correo } = req.body;
 
+  try {
+    // 1. Buscamos el locker y lo marcamos como disponible (estado false o como lo tengas)
+    // Asumiendo que 'ocupado' es tu columna de estado. Ajusta el nombre si es distinto.
+    const { error: errorLocker } = await supabase
+      .from('lockers')
+      .update({ ocupado: false, ocupado_por: null }) 
+      .eq('id', id_locker);
+
+    if (errorLocker) throw errorLocker;
+
+    // 2. Guardamos el movimiento en el historial
+    const fechaActual = new Date().toLocaleString();
+    const { error: errorHistorial } = await supabase
+      .from('movimientos')
+      .insert([
+        { 
+          correo: correo, 
+          accion: `Liberaste el Locker ${id_locker}`, 
+          fecha: fechaActual 
+        }
+      ]);
+
+    if (errorHistorial) throw errorHistorial;
+
+    res.json({ mensaje: "Locker liberado exitosamente" });
+
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error del servidor al liberar." });
+  }
+});
 // Encendemos el servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
