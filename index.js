@@ -103,6 +103,39 @@ app.post('/api/liberar', async (req, res) => {
     res.status(500).json({ mensaje: "Error del servidor al liberar." });
   }
 });
+// NUEVA RUTA: Reservar un locker
+app.post('/api/reservar', async (req, res) => {
+  const { id_locker, correo, piso } = req.body;
+
+  try {
+    // 1. Buscamos el locker y lo marcamos como OCUPADO
+    const { error: errorLocker } = await supabase
+      .from('lockers')
+      .update({ ocupado: true, ocupado_por: correo }) 
+      .eq('id', id_locker);
+
+    if (errorLocker) throw errorLocker;
+
+    // 2. Guardamos el movimiento en la base de datos general
+    const fechaActual = new Date().toLocaleString();
+    const { error: errorHistorial } = await supabase
+      .from('movimientos')
+      .insert([
+        { 
+          correo: correo, 
+          accion: `Reservaste el Locker ${id_locker} (Piso: ${piso})`, 
+          fecha: fechaActual 
+        }
+      ]);
+
+    if (errorHistorial) throw errorHistorial;
+
+    res.json({ mensaje: "¡Reserva completada con éxito en la nube!" });
+
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error del servidor al reservar.", detalle: error.message });
+  }
+});
 // Encendemos el servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
