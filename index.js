@@ -79,7 +79,7 @@ app.post('/api/liberar', async (req, res) => {
     const { error: errorLocker } = await supabase
       .from('lockers')
       // OJO: Si tu columna en Supabase se llama "estado", cambia "ocupado: false" por "estado: 'disponible'"
-      .update({ ocupado: false, ocupado_por: null }) 
+     .update({ estado: 'disponible', usuario_correo: null, reserved_at: null })
       .eq('id', id_locker);
 
     if (errorLocker) throw errorLocker;
