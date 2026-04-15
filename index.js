@@ -84,19 +84,7 @@ app.post('/api/liberar', async (req, res) => {
 
     if (errorLocker) throw errorLocker;
 
-    // 2. Guardamos el movimiento en el historial
-    const fechaActual = new Date().toLocaleString();
-    const { error: errorHistorial } = await supabase
-      .from('movimientos')
-      .insert([{
-         correo: correo,
-         accion: `Liberaste el Locker ${id_locker}`,
-         fecha: fechaActual
-      }]);
-
-    if (errorHistorial) throw errorHistorial;
-
-    // 3. ¡EL PASO CLAVE! Le avisamos a la app móvil que todo salió perfecto
+    // ¡EL PASO CLAVE! Le avisamos a la app móvil que todo salió perfecto
     res.status(200).json({ mensaje: "Locker liberado con éxito" });
 
   } catch (error) {
