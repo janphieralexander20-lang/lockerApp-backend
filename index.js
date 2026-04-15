@@ -70,14 +70,15 @@ app.post('/api/abrir', async (req, res) => {
   }
 });
 // NUEVA RUTA: Liberar un locker
+// NUEVA RUTA: Liberar un locker
 app.post('/api/liberar', async (req, res) => {
   const { id_locker, correo } = req.body;
 
   try {
-    // 1. Buscamos el locker y lo marcamos como disponible (estado false o como lo tengas)
-    // Asumiendo que 'ocupado' es tu columna de estado. Ajusta el nombre si es distinto.
+    // 1. Buscamos el locker y lo marcamos como disponible
     const { error: errorLocker } = await supabase
       .from('lockers')
+      // OJO: Si tu columna en Supabase se llama "estado", cambia "ocupado: false" por "estado: 'disponible'"
       .update({ ocupado: false, ocupado_por: null }) 
       .eq('id', id_locker);
 
@@ -87,53 +88,21 @@ app.post('/api/liberar', async (req, res) => {
     const fechaActual = new Date().toLocaleString();
     const { error: errorHistorial } = await supabase
       .from('movimientos')
-      .insert([
-        { 
-          correo: correo, 
-          accion: `Liberaste el Locker ${id_locker}`, 
-          fecha: fechaActual 
-        }
-      ]);
+      .insert([{
+         correo: correo,
+         accion: `Liberaste el Locker ${id_locker}`,
+         fecha: fechaActual
+      }]);
 
     if (errorHistorial) throw errorHistorial;
 
-    res.json({ mensaje: "Locker liberado exitosamente" });
+    // 3. ¡EL PASO CLAVE! Le avisamos a la app móvil que todo salió perfecto
+    res.status(200).json({ mensaje: "Locker liberado con éxito" });
 
   } catch (error) {
-    res.status(500).json({ mensaje: "Error del servidor al liberar." });
-  }
-});
-// NUEVA RUTA: Reservar un locker
-app.post('/api/reservar', async (req, res) => {
-  const { id_locker, correo, piso } = req.body;
-
-  try {
-    // 1. Buscamos el locker y lo marcamos como OCUPADO
-    const { error: errorLocker } = await supabase
-      .from('lockers')
-      .update({ ocupado: true, ocupado_por: correo }) 
-      .eq('id', id_locker);
-
-    if (errorLocker) throw errorLocker;
-
-    // 2. Guardamos el movimiento en la base de datos general
-    const fechaActual = new Date().toLocaleString();
-    const { error: errorHistorial } = await supabase
-      .from('movimientos')
-      .insert([
-        { 
-          correo: correo, 
-          accion: `Reservaste el Locker ${id_locker} (Piso: ${piso})`, 
-          fecha: fechaActual 
-        }
-      ]);
-
-    if (errorHistorial) throw errorHistorial;
-
-    res.json({ mensaje: "¡Reserva completada con éxito en la nube!" });
-
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error del servidor al reservar.", detalle: error.message });
+    // Si algo sale mal, lo imprimimos en Render para verlo y le avisamos a la app
+    console.error("🔥 Error al liberar locker:", error);
+    res.status(500).json({ mensaje: "Error del servidor", detalle: error.message });
   }
 });
 // Encendemos el servidor
