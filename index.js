@@ -63,8 +63,14 @@ app.post('/api/abrir', async (req, res) => {
     const pinValido = await bcrypt.compare(pin, data.pin);
     if (!pinValido) return res.status(400).json({ mensaje: "PIN incorrecto." });
 
-    // ¡Éxito! Devolvemos el nombre del estudiante
-    res.json({ mensaje: "Acceso concedido", nombre: data.nombre });
+    // ¡Éxito! Devolvemos TODOS los datos importantes del estudiante a la app
+    res.json({ 
+      mensaje: "Acceso concedido", 
+      nombre: data.nombre,
+      carrera: data.carrera || "", // Reemplaza con el nombre real de tu columna en Supabase si es distinto
+      universidad: data.universidad || "",
+      id_locker: data.id_locker || null // ¡Súper importante! Pon el nombre exacto de la columna donde guardas su locker
+    });
   } catch (error) {
     res.status(500).json({ mensaje: "Error del servidor." });
   }
