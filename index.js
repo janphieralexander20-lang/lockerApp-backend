@@ -83,7 +83,7 @@ app.put('/api/editar', async (req, res) => {
     // Actualizamos los datos en Supabase buscando al usuario por su correo
     const { error } = await supabase
       .from('usuarios') // Asegúrate de que tu tabla se llame 'usuarios'
-      .update({ carrera: carrera, universidad: universidad })
+      .update({ carrera, universidad })
       .eq('correo', correo);
 
     if (error) {
@@ -91,6 +91,24 @@ app.put('/api/editar', async (req, res) => {
     }
 
     res.json({ mensaje: "Perfil actualizado con éxito." });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error del servidor." });
+  }
+});
+// RUTA: GUARDAR RESERVA DEL CASILLERO
+app.post('/api/reservar', async (req, res) => {
+  const { correo, id_locker } = req.body;
+  try {
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ id_locker: id_locker }) // <- IMPORTANTE: que coincida con tu columna en Supabase
+      .eq('correo', correo);
+
+    if (error) {
+      console.log("Error de Supabase:", error); // Esto nos dejará verlo en Render
+      return res.status(400).json({ mensaje: "Error al guardar casillero." });
+    }
+    res.json({ mensaje: "Reserva guardada en la nube con éxito." });
   } catch (error) {
     res.status(500).json({ mensaje: "Error del servidor." });
   }
