@@ -75,6 +75,26 @@ app.post('/api/abrir', async (req, res) => {
     res.status(500).json({ mensaje: "Error del servidor." });
   }
 });
+// RUTA: EDITAR PERFIL (Guardar nueva carrera y sede)
+app.put('/api/editar', async (req, res) => {
+  const { correo, carrera, universidad } = req.body;
+  
+  try {
+    // Actualizamos los datos en Supabase buscando al usuario por su correo
+    const { error } = await supabase
+      .from('usuarios') // Asegúrate de que tu tabla se llame 'usuarios'
+      .update({ carrera: carrera, universidad: universidad })
+      .eq('correo', correo);
+
+    if (error) {
+      return res.status(400).json({ mensaje: "Error al actualizar en la base de datos." });
+    }
+
+    res.json({ mensaje: "Perfil actualizado con éxito." });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error del servidor." });
+  }
+});
 // NUEVA RUTA: Liberar un locker
 // NUEVA RUTA: Liberar un locker
 app.post('/api/liberar', async (req, res) => {
