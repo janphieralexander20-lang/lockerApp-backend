@@ -5,7 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
@@ -115,6 +115,74 @@ app.post('/api/reservar', async (req, res) => {
 });
 // NUEVA RUTA: Liberar un locker
 // NUEVA RUTA: Liberar un locker
+// RUTA: FIRMAR CONTRATO Y RESERVAR CASILLERO (FEUST 2026-2027)
+app.post('/api/firmar_contrato', async (req, res) => {
+  const { rut, correo, torre, piso, n_casillero, firmaBase64 } = req.body;
+
+  try {
+    // 1. Limpiamos el texto de la imagen y la convertimos en un archivo real
+    const base64Data = firmaBase64.replace(/^data:image\/\w+;base64,/, "");
+    const firmaBuffer = Buffer.from(base64Data, 'base64');
+    
+    // 2. Creamos un nombre único para el archivo (Ej: firma_12345678-9_1680000.png)
+    const nombreArchivo = `firma_${rut}_${Date.now()}.png`;
+
+    // 3. Subimos la imagen al cajón 'firmas_contratos' en Supabase Storage
+    const { error: uploadError } = await supabase
+      .storage
+      .from('firmas_contratos')
+      .upload(nombreArchivo, firmaBuffer, {
+        contentType: 'image/png',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.log("Error Storage:", uploadError);
+      return res.status(400).json({ mensaje: "No se pudo subir la firma." });
+    }
+
+    // 4. Pedimos el link público de la firma que acabamos de subir
+    const { data: urlData } = supabase
+      .storage
+      .from('firmas_contratos')
+      .getPublicUrl(nombreArchivo);
+    
+    const firmaUrl = urlData.publicUrl;
+
+    // 5. Guardamos todo el contrato legal en la tabla de Supabase
+    const { error: dbError } = await supabase
+      .from('contratos_firmados')
+      .insert([{
+        rut: rut,
+        correo: correo,
+        torre: torre,
+        piso: piso,
+        n_casillero: n_casillero,
+        firma_url: firmaUrl,
+        monto_pagado: 10000,
+        periodo: "2026-2027",
+        fecha_firma: new Date().toISOString()
+      }]);
+
+    if (dbError) {
+      console.log("Error BD:", dbError);
+      return res.status(400).json({ mensaje: "Error al guardar el contrato legal." });
+    }
+
+    // 6. Finalmente, le asignamos el casillero al alumno en la tabla 'usuarios'
+    await supabase.from('usuarios').update({ id_locker: n_casillero }).eq('correo', correo);
+
+    // Si todo salió bien, le avisamos a la app móvil
+    res.json({ 
+      mensaje: "Contrato firmado y casillero reservado con éxito.", 
+      url_documento: firmaUrl 
+    });
+
+  } catch (error) {
+    console.error("Error crítico en el servidor:", error);
+    res.status(500).json({ mensaje: "Error interno del servidor." });
+  }
+});
 app.post('/api/liberar', async (req, res) => {
   const { id_locker, correo } = req.body;
 
