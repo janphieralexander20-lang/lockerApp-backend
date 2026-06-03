@@ -211,9 +211,9 @@ app.get('/api/admin/dashboard', async (req, res) => {
     // Le pedimos a Supabase TODA la tabla de reservas
     // IMPORTANTE: Si tu tabla se llama distinto (ej: 'usuarios' o 'lockers'), cámbialo aquí.
     const { data, error } = await supabase
-      .from('reservas') 
+      .from('contratos_firmados') 
       .select('*')
-      .order('created_at', { ascending: false }); // Ordena de más nuevo a más viejo
+      .order('fecha_firma', { ascending: false }); // Ordena de más nuevo a más viejo
 
     if (error) {
       return res.status(400).json({ error: error.message });
