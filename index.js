@@ -205,6 +205,26 @@ app.post('/api/liberar', async (req, res) => {
     res.status(500).json({ mensaje: "Error del servidor", detalle: error.message });
   }
 });
+// --- RUTA EXCLUSIVA PARA EL PANEL DE EVALUACIÓN ---
+app.get('/api/admin/dashboard', async (req, res) => {
+  try {
+    // Le pedimos a Supabase TODA la tabla de reservas
+    // IMPORTANTE: Si tu tabla se llama distinto (ej: 'usuarios' o 'lockers'), cámbialo aquí.
+    const { data, error } = await supabase
+      .from('reservas') 
+      .select('*')
+      .order('created_at', { ascending: false }); // Ordena de más nuevo a más viejo
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data); // Enviamos los datos listos a la web
+  } catch (error) {
+    console.error("Error cargando dashboard:", error);
+    res.status(500).json({ error: "No se pudieron cargar los datos del panel" });
+  }
+});
 // Encendemos el servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
