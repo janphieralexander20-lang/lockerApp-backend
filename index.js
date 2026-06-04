@@ -113,43 +113,53 @@ app.post('/api/reservar', async (req, res) => {
     res.status(500).json({ mensaje: "Error del servidor." });
   }
 });
-// NUEVA RUTA: Liberar un locker
-// NUEVA RUTA: Liberar un locker
 // RUTA: FIRMAR CONTRATO Y RESERVAR CASILLERO (FEUST 2026-2027)
 app.post('/api/firmar_contrato', async (req, res) => {
-  const { rut, correo, torre, piso, n_casillero, firmaBase64 } = req.body;
+  // 1. AHORA RECIBIMOS TAMBIÉN EL COMPROBANTE
+  const { rut, correo, torre, piso, n_casillero, firmaBase64, comprobanteBase64 } = req.body; 
 
   try {
-    // 1. Limpiamos el texto de la imagen y la convertimos en un archivo real
-    const base64Data = firmaBase64.replace(/^data:image\/\w+;base64,/, "");
-    const firmaBuffer = Buffer.from(base64Data, 'base64');
-    
-    // 2. Creamos un nombre único para el archivo (Ej: firma_12345678-9_1680000.png)
-    const nombreArchivo = `firma_${rut}_${Date.now()}.png`;
+    // --- PASO A: PROCESAR Y SUBIR LA FIRMA ---
+    const base64Firma = firmaBase64.replace(/^data:image\/\w+;base64,/, "");
+    const firmaBuffer = Buffer.from(base64Firma, 'base64');
+    const nombreFirma = `firma_${rut}_${Date.now()}.png`;
 
-    // 3. Subimos la imagen al cajón 'firmas_contratos' en Supabase Storage
-    const { error: uploadError } = await supabase
+    const { error: uploadFirmaError } = await supabase
       .storage
       .from('firmas_contratos')
-      .upload(nombreArchivo, firmaBuffer, {
-        contentType: 'image/png',
-        upsert: false
-      });
+      .upload(nombreFirma, firmaBuffer, { contentType: 'image/png', upsert: false });
 
-    if (uploadError) {
-      console.log("Error Storage:", uploadError);
+    if (uploadFirmaError) {
+      console.log("Error Storage Firma:", uploadFirmaError);
       return res.status(400).json({ mensaje: "No se pudo subir la firma." });
     }
 
-    // 4. Pedimos el link público de la firma que acabamos de subir
-    const { data: urlData } = supabase
-      .storage
-      .from('firmas_contratos')
-      .getPublicUrl(nombreArchivo);
-    
-    const firmaUrl = urlData.publicUrl;
+    const { data: urlFirmaData } = supabase.storage.from('firmas_contratos').getPublicUrl(nombreFirma);
+    const firmaUrl = urlFirmaData.publicUrl;
 
-    // 5. Guardamos todo el contrato legal en la tabla de Supabase
+    // --- PASO B: PROCESAR Y SUBIR EL COMPROBANTE (NUEVO) ---
+    let comprobanteUrl = null;
+    if (comprobanteBase64) {
+      const base64Comprobante = comprobanteBase64.replace(/^data:image\/\w+;base64,/, "");
+      const comprobanteBuffer = Buffer.from(base64Comprobante, 'base64');
+      const nombreComprobante = `comprobante_${rut}_${Date.now()}.jpg`;
+
+      // Subimos la foto al cajón 'comprobantes'
+      const { error: uploadComprobanteError } = await supabase
+        .storage
+        .from('comprobantes') 
+        .upload(nombreComprobante, comprobanteBuffer, { contentType: 'image/jpeg', upsert: false });
+
+      if (uploadComprobanteError) {
+        console.log("Error Storage Comprobante:", uploadComprobanteError);
+        return res.status(400).json({ mensaje: "No se pudo subir el comprobante de pago." });
+      }
+
+      const { data: urlComprobanteData } = supabase.storage.from('comprobantes').getPublicUrl(nombreComprobante);
+      comprobanteUrl = urlComprobanteData.publicUrl;
+    }
+
+    // --- PASO C: GUARDAR TODO EL CONTRATO LEGAL EN SUPABASE ---
     const { error: dbError } = await supabase
       .from('contratos_firmados')
       .insert([{
@@ -159,6 +169,7 @@ app.post('/api/firmar_contrato', async (req, res) => {
         piso: piso,
         n_casillero: n_casillero,
         firma_url: firmaUrl,
+        comprobante_url: comprobanteUrl, // <-- AHORA SÍ GUARDAMOS EL LINK DE LA FOTO
         monto_pagado: 10000,
         periodo: "2026-2027",
         fecha_firma: new Date().toISOString()
@@ -169,10 +180,10 @@ app.post('/api/firmar_contrato', async (req, res) => {
       return res.status(400).json({ mensaje: "Error al guardar el contrato legal." });
     }
 
-    // 6. Finalmente, le asignamos el casillero al alumno en la tabla 'usuarios'
+    // --- PASO D: ASIGNAR EL CASILLERO EN LA TABLA USUARIOS ---
     await supabase.from('usuarios').update({ id_locker: n_casillero }).eq('correo', correo);
 
-    // Si todo salió bien, le avisamos a la app móvil
+    // ¡Éxito total!
     res.json({ 
       mensaje: "Contrato firmado y casillero reservado con éxito.", 
       url_documento: firmaUrl 
