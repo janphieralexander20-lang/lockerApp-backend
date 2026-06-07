@@ -271,6 +271,21 @@ app.get('/api/ver_reportes', async (req, res) => {
   }
   res.json(data);
 });
+// 🛠️ RUTA 3: Marcar problema como solucionado desde el Dashboard
+app.post('/api/resolver_falla', async (req, res) => {
+  const { correo } = req.body;
+  
+  // Borra el reporte de la tabla de fallas
+  const { error } = await supabase
+    .from('reportes_fallas')
+    .delete()
+    .match({ correo: correo });
+
+  if (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  res.json({ mensaje: "Problema resuelto exitosamente" });
+});
 // Encendemos el servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
