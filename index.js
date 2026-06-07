@@ -237,6 +237,40 @@ app.get('/api/admin/dashboard', async (req, res) => {
     res.status(500).json({ error: "No se pudieron cargar los datos del panel" });
   }
 });
+// 🛠️ RUTA 1: Recibir reporte desde el celular
+app.post('/api/reportar_falla', async (req, res) => {
+  const { correo, id_locker, mensaje } = req.body;
+
+  // Insertamos el reporte en la tabla historial_accesos de Supabase
+  const { data, error } = await supabase
+    .from('historial_accesos')
+    .insert([
+      { 
+        correo: correo, 
+        accion: `FALLA EN LOCKER #${id_locker}: ${mensaje}`,
+        fecha: new Date().toISOString()
+      }
+    ]);
+
+  if (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  res.json({ mensaje: "Reporte guardado con éxito en la nube" });
+});
+
+// 🛠️ RUTA 2: Obtener todos los reportes para el Dashboard del profesor
+app.get('/api/ver_reportes', async (req, res) => {
+  const { data, error } = await supabase
+    .from('historial_accesos')
+    .select('*')
+    .ilike('accion', '%FALLA%') // Filtra solo las acciones que contengan la palabra "FALLA"
+    .order('id', { ascending: false });
+
+  if (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  res.json(data);
+});
 // Encendemos el servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
