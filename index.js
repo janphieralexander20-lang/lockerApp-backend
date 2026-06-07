@@ -243,7 +243,7 @@ app.post('/api/reportar_falla', async (req, res) => {
 
   // Insertamos el reporte en la tabla historial_accesos de Supabase
   const { data, error } = await supabase
-    .from('historial_accesos')
+    .from('reportes_fallas')
     .insert([
       { 
         correo: correo, 
@@ -261,7 +261,7 @@ app.post('/api/reportar_falla', async (req, res) => {
 // 🛠️ RUTA 2: Obtener todos los reportes para el Dashboard del profesor
 app.get('/api/ver_reportes', async (req, res) => {
   const { data, error } = await supabase
-    .from('historial_accesos')
+    .from('reportes_fallas')
     .select('*')
     .ilike('accion', '%FALLA%') // Filtra solo las acciones que contengan la palabra "FALLA"
     .order('id', { ascending: false });
