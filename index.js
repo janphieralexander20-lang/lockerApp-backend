@@ -19,7 +19,7 @@ app.get('/', (req, res) => {
 app.get('/api/lockers', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('lockers')
+      .from('contratos_firmados')
       .select('*')
       .order('id', { ascending: true });
 
