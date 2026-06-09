@@ -117,7 +117,7 @@ app.post('/api/reservar', async (req, res) => {
 // RUTA: FIRMAR CONTRATO Y RESERVAR CASILLERO (FEUST 2026-2027)
 app.post('/api/firmar_contrato', async (req, res) => {
   // 1. AHORA RECIBIMOS TAMBIÉN EL COMPROBANTE
-  const { rut, correo, torre, piso, n_casillero, firmaBase64, comprobanteBase64 } = req.body; 
+  const { rut, correo, torre, piso, n_casillero, firmaBase64, comprobanteBase64, carnetBase64 } = req.body; 
 
   try {
     // --- PASO A: PROCESAR Y SUBIR LA FIRMA ---
@@ -159,6 +159,25 @@ app.post('/api/firmar_contrato', async (req, res) => {
       const { data: urlComprobanteData } = supabase.storage.from('comprobantes').getPublicUrl(nombreComprobante);
       comprobanteUrl = urlComprobanteData.publicUrl;
     }
+    // 🪪 SUBIR CARNET A SUPABASE STORAGE
+let carnet_url = null;
+if (carnetBase64) {
+  // Quitamos la cabecera "data:image/png;base64," si la tiene
+  const base64Data = carnetBase64.replace(/^data:image\/\w+;base64,/, "");
+  const buffer = Buffer.from(base64Data, 'base64');
+  const nombreArchivo = `carnet_${correo}_${Date.now()}.png`;
+
+  // IMPORTANTE: Lo subimos al nuevo bucket llamado 'carnets'
+  const { data, error } = await supabase.storage
+    .from('carnets')
+    .upload(nombreArchivo, buffer, { contentType: 'image/png' });
+
+  if (!error) {
+    // Obtenemos el enlace público
+    const { data: urlData } = supabase.storage.from('carnets').getPublicUrl(nombreArchivo);
+    carnet_url = urlData.publicUrl;
+  }
+}
 
     // --- PASO C: GUARDAR TODO EL CONTRATO LEGAL EN SUPABASE ---
     const { error: dbError } = await supabase
@@ -171,6 +190,7 @@ app.post('/api/firmar_contrato', async (req, res) => {
         n_casillero: n_casillero,
         firma_url: firmaUrl,
         comprobante_url: comprobanteUrl, // <-- AHORA SÍ GUARDAMOS EL LINK DE LA FOTO
+        carnet_url: carnet_url,
         monto_pagado: 10000,
         periodo: "2026-2027",
         fecha_firma: new Date().toISOString()
